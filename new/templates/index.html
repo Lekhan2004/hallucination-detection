@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Judge Interface</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>LLM Hallucination Judge</h1>
+        <p>Enter your problem and model answer to evaluate using Mistral & Gemini (DeepSeek).</p>
+
+        <form id="judgeForm">
+            <label>Problem Statement</label>
+            <textarea id="problem" placeholder="Enter math word problem..."></textarea>
+
+            <label>User / Model Answer</label>
+            <textarea id="model_answer" placeholder="Enter model's chain-of-thought + final answer..."></textarea>
+
+            <button type="button" id="evaluateBtn">Evaluate</button>
+        </form>
+
+        <div class="results">
+            <h2>Results</h2>
+            <div class="result-box">
+                <h3>Mistral Judge</h3>
+                <pre id="mistral_output">Waiting...</pre>
+            </div>
+
+            <div class="result-box">
+                <h3>Gemini (DeepSeek) Judge</h3>
+                <pre id="gemini_output">Waiting...</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("evaluateBtn").addEventListener("click", async () => {
+            const problem = document.getElementById("problem").value.trim();
+            const model_answer = document.getElementById("model_answer").value.trim();
+
+            if (!problem || !model_answer) {
+                alert("Please fill in all fields.");
+                return;
+            }
+
+            const payload = { problem, model_answer };
+
+            // You will route this to your backend where you call Mistral & Gemini APIs
+            const resp = await fetch("http://127.0.0.1:8000/evaluate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await resp.json();
+
+            document.getElementById("mistral_output").textContent = JSON.stringify(data.mistral, null, 2);
+            document.getElementById("gemini_output").textContent = JSON.stringify(data.deepseek, null, 2);
+        });
+    </script>
+</body>
+</html>

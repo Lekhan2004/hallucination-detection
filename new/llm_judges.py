@@ -10,7 +10,7 @@ import requests
 
 class GeminiWrapper:
     def __init__(self, api_key: str = None, model_name: str = "gemini-1.5-pro"):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        self.api_key = "AIzaSyCIH2HWLwbrggah8QGcKYzN2TiO9MKt1Mk"
         if not self.api_key:
             raise ValueError("API Key not found. Set GEMINI_API_KEY env var.")
             
