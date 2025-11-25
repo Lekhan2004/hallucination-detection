@@ -68,7 +68,7 @@ def enrich_record(rec: Dict[str, Any]) -> Dict[str, Any]:
         augmented["deepseek_hallucination_score"] = None
         augmented["deepseek_reason"] = None
 
-    # 4) Mistral self-judge via Ollama
+    # 4) Mistral self-judge via Ollama (faithfulness-based)
     mj_result: Optional[Dict[str, Any]] = None
     try:
         mj_result = mistral_self_judge(rec)
@@ -76,29 +76,35 @@ def enrich_record(rec: Dict[str, Any]) -> Dict[str, Any]:
         mj_result = None
 
     if mj_result is not None:
-        augmented["mistral_self_correct"] = mj_result.get("correct")
+        # Core summary fields
         augmented["mistral_self_hallucination"] = mj_result.get("hallucination")
         augmented["mistral_self_hallucination_score"] = mj_result.get(
             "hallucination_score"
         )
         augmented["mistral_self_reason"] = mj_result.get("reason")
+
+        # Faithfulness-specific fields from the new prompt
+        augmented["mistral_self_faithfulness_score"] = mj_result.get(
+            "faithfulness_score"
+        )
+        augmented["mistral_self_claims"] = mj_result.get("claims")
     else:
-        augmented["mistral_self_correct"] = None
         augmented["mistral_self_hallucination"] = None
         augmented["mistral_self_hallucination_score"] = None
         augmented["mistral_self_reason"] = None
-
+        augmented["mistral_self_faithfulness_score"] = None
+        augmented["mistral_self_claims"] = None
     return augmented
 
 
 def main():
     input_path = "outputs/mistral_gsm8k_single_answer_train.jsonl"
-    output_path = "outputs/mistral_gsm8k_hallucination_annotated2.jsonl"
+    output_path = "outputs/mistral_gsm8k_hallucination_annotated_3.jsonl"
 
     records = read_jsonl(input_path)
 
     # If you only want to process first 200:
-    records = records[:10]
+    records = records[:100]
 
     # print("record 1: {}",records[1])
     augmented_records: List[Dict[str, Any]] = []

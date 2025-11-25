@@ -128,20 +128,80 @@ def deepseek_judge(rec: Dict[str, Any], api_key="AIzaSyBMg6v31a6eCYgALJ0W3cVww6x
         print(f"Gemini Judge Failed: {e}")
         return {"error": "api_exception", "details": str(e)}
 
+from typing import Dict, Any
+
+def build_self_eval_prompt(rec: Dict[str, Any]) -> str:
+    """
+    Build a self-eval / faithfulness prompt for Mistral via Ollama.
+
+    We treat:
+      - Source Context  := GSM8K problem + reference final answer
+      - Generated Answer := model's full_response (its chain-of-thought + final answer)
+
+    The model is asked to do claim-level faithfulness analysis and then summarize it
+    as a JSON object for our pipeline.
+    """
+    problem = rec.get("problem", "")
+    gold = rec.get("gold_answer_raw", "")
+    generated = rec.get("full_response", "")
+
+    prompt = (
+        "You are a fact-checking AI focused on detecting hallucinations.\n\n"
+        "SOURCE CONTEXT:\n"
+        "The following is the *only* information you are allowed to treat as ground truth.\n\n"
+        f"Problem:\n{problem}\n\n"
+        f"Reference final answer:\n{gold}\n\n"
+        "GENERATED ANSWER (to evaluate):\n"
+        f"{generated}\n\n"
+        "Perform a faithfulness analysis of the GENERATED ANSWER with respect to the SOURCE CONTEXT.\n"
+        "Follow these steps *internally*, then output ONLY a single JSON object:\n"
+        "1. Extract each distinct factual claim or step from the generated answer.\n"
+        "2. For each claim, check if it is directly supported by the source context.\n"
+        "3. Label each claim with one of:\n"
+        '   - \"SUPPORTED\" (explicitly present in the source context)\n'
+        '   - \"PARTIALLY_SUPPORTED\" (some parts match, but not fully)\n'
+        '   - \"UNSUPPORTED\" (not stated or contradicted by the source context)\n'
+        "4. Highlight any information that appears fabricated or inferred without an explicit basis.\n"
+        "5. Compute a faithfulness score as the percentage of claims that are fully SUPPORTED "
+        "(0 to 1, not 0 to 100).\n"
+        "   For example, if 8 out of 10 claims are SUPPORTED, faithfulness_score = 0.8.\n\n"
+        "Be extremely rigorous: if a detail is not explicitly present in the source context, "
+        "mark the claim as UNSUPPORTED or PARTIALLY_SUPPORTED.\n\n"
+        "Additionally, derive these summary judgments:\n"
+        "- correct: boolean, true if the final numeric answer in the generated answer matches the "
+        "reference final answer exactly.\n"
+        "- hallucination: boolean, true if there is at least one UNSUPPORTED claim.\n"
+        "- hallucination_score: number between 0 and 1, where 0 means no hallucinations "
+        "and 1 means heavily hallucinated. A simple default is hallucination_score = 1 - faithfulness_score.\n"
+        "- reason: a short natural language summary of the main issues you found.\n\n"
+        "IMPORTANT OUTPUT FORMAT:\n"
+        "Return ONLY a single JSON object with this structure (no extra text before or after):\n"
+        "{\n"
+        "  \"claims\": [\n"
+        "    {\n"
+        "      \"text\": \"...\",           // the claim text\n"
+        "      \"label\": \"SUPPORTED\" | \"PARTIALLY_SUPPORTED\" | \"UNSUPPORTED\"\n"
+        "    },\n"
+        "    ...\n"
+        "  ],\n"
+        "  \"faithfulness_score\": <number between 0 and 1>,\n"
+        "  \"hallucination\": <true or false>,\n"
+        "  \"hallucination_score\": <number between 0 and 1>,\n"
+        "  \"reason\": \"short explanation\"\n"
+        "}\n"
+        "Do not include any commentary outside of this JSON.\n"
+    )
+
+    return prompt
+
 
 # ========================== # Mistral Self-Judge via Ollama # ========================== 
 
 OLLAMA_MODEL_NAME = "mistral:7b-instruct" 
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate" 
-def mistral_self_judge(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """
-    Self-evaluation judge using the same Mistral model in Ollama.
 
-    Returns dict with keys:
-      correct, hallucination, hallucination_score, reason
-    or None on failure.
-    """
-    prompt = _build_judge_prompt(rec)
+def mistral_self_judge(rec: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    prompt = build_self_eval_prompt(rec)
 
     payload = {
         "model": OLLAMA_MODEL_NAME,
