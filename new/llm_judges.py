@@ -94,7 +94,7 @@ def _parse_json_from_content(content: str) -> Optional[Dict[str, Any]]:
     except Exception:
         return None
 
-def deepseek_judge(rec: Dict[str, Any], api_key="AIzaSyBMg6v31a6eCYgALJ0W3cVww6xdMZY-vzE") -> Dict[str, Any]:
+def deepseek_judge(rec: Dict[str, Any], api_key="AIzaSyDheqZyTBDk6ZhTGgfsvunWaHhRpQgysHU") -> Dict[str, Any]:
     """
     LLM-as-judge using the GeminiWrapper.
     """
